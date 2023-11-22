@@ -1,32 +1,64 @@
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
-
-# Create synthetic data for binary classification
 import numpy as np
-np.random.seed(42)
 
-X_train = np.random.rand(100, 1)  # Input features
-y_train = (X_train > 0.5).astype(int)  # Binary labels
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
-# Build a simple feedforward neural network
-model = Sequential()
-model.add(Dense(10, input_dim=1, activation='relu'))  # Input layer with 10 neurons and ReLU activation
-model.add(Dense(1, activation='sigmoid'))  # Output layer with 1 neuron and sigmoid activation
+def sigmoid_derivative(x):
+    return x * (1 - x)
 
-# Compile the model
-model.compile(optimizer=Adam(learning_rate=0.01), loss='binary_crossentropy', metrics=['accuracy'])
+def initialize_weights(input_size, hidden_size, output_size):
+    np.random.seed(42)
+    weights_input_hidden = 2 * np.random.random((input_size, hidden_size)) - 1
+    weights_hidden_output = 2 * np.random.random((hidden_size, output_size)) - 1
+    return weights_input_hidden, weights_hidden_output
 
-# Train the model
-model.fit(X_train, y_train, epochs=50, batch_size=32, verbose=2)
+def forward_pass(inputs, weights_input_hidden, weights_hidden_output):
+    hidden_layer_input = np.dot(inputs, weights_input_hidden)
+    hidden_layer_output = sigmoid(hidden_layer_input)
 
-# Create synthetic test data
-X_test = np.array([[0.2], [0.8]])
+    output_layer_input = np.dot(hidden_layer_output, weights_hidden_output)
+    predicted_output = sigmoid(output_layer_input)
 
-# Make predictions
-predictions = model.predict(X_test)
+    return hidden_layer_output, predicted_output
 
-# Print the predictions
-print("Predictions:")
-print(predictions)
+def train_neural_network(inputs, labels, epochs, learning_rate):
+    input_size = inputs.shape[1]
+    hidden_size = 4  # Adjust as needed
+    output_size = 1
+
+    weights_input_hidden, weights_hidden_output = initialize_weights(input_size, hidden_size, output_size)
+
+    for epoch in range(epochs):
+        # Forward pass
+        hidden_layer_output, predicted_output = forward_pass(inputs, weights_input_hidden, weights_hidden_output)
+
+        # Backpropagation
+        output_error = labels - predicted_output
+        output_delta = output_error * sigmoid_derivative(predicted_output)
+
+        hidden_layer_error = output_delta.dot(weights_hidden_output.T)
+        hidden_layer_delta = hidden_layer_error * sigmoid_derivative(hidden_layer_output)
+
+        # Update weights
+        weights_hidden_output += hidden_layer_output.T.dot(output_delta) * learning_rate
+        weights_input_hidden += inputs.T.dot(hidden_layer_delta) * learning_rate
+
+        if epoch % 1000 == 0:
+            print(f"Error after {epoch} epochs: {np.mean(np.abs(output_error))}")
+
+    return weights_input_hidden, weights_hidden_output
+
+if __name__ == "__main__":
+    # Example usage with an XOR problem
+    inputs = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+    labels = np.array([[0], [1], [1], [0]])
+
+    epochs = 10000
+    learning_rate = 0.1
+
+    trained_weights_input_hidden, trained_weights_hidden_output = train_neural_network(inputs, labels, epochs, learning_rate)
+
+    # Test the trained neural network
+    _, predictions = forward_pass(inputs, trained_weights_input_hidden, trained_weights_hidden_output)
+    print("Predictions:")
+    print(predictions)
